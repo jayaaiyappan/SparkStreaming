@@ -59,16 +59,3 @@ if __name__ == '__main__':
 
     # flattened_df.printSchema()
     flattened_df.show()
-    # # Write to Sink
-    # output_query = flattened_df.writeStream\
-    #     .format("json")\
-    #     .option("path","output")\
-    #     .option("checkpointLocation", "chck-pnt-dir")\
-    #     .outputMode("append")\
-    #     .queryName("Flattened Invoice Writter")\
-    #     .trigger(processingTime="1 minute")\
-    #     .start()
-    #
-    # print("Written")
-    #
-    # output_query.awaitTermination()
