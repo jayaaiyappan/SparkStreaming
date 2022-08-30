@@ -1,6 +1,6 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.types import  StructType, StructField, StringType, LongType, DoubleType, IntegerType, ArrayType
-from pyspark.sql.functions import explode,col,from_json
+from pyspark.sql.functions import expr,from_json,col
 
 if __name__ == '__main__':
     spark = SparkSession\
@@ -33,7 +33,7 @@ if __name__ == '__main__':
         StructField("user_ratings", ArrayType(StructType([
             StructField("rating_text", StringType()),
             StructField("user_id", StringType()),
-            StructField("rating", DoubleType())
+            StructField("rating", StringType())
         ]))),
     ])
 
@@ -46,19 +46,21 @@ if __name__ == '__main__':
         .load()
 
     # Transform to Output DataFrame
-    value_df = input_df.select(from_json(col('value').cast("string"),schema).alias("value"))
+    value_df = input_df.select(from_json(col("value").cast("string"),schema).alias("value"))
+    # value_df.printSchema()
 
-    exploded_df = value_df.selectExpr('res_id','name','has_table_booking','is_delivering_now','deeplink','menu_url',
-                                'cuisines','location.latitude as latitude','location.address as address',
-                                'location.city as city', 'location.country_id as country_id','location.locality_verbose as locality_verbose',
-                                'location.city_id as city_id','location.zipcode as zipcode',
-                                'location.longitude as longitude', 'location.locality as locality', 'explode(user_ratings) as user_ratings')
+    exploded_df = value_df.selectExpr("value.res_id","value.name","value.menu_url","value.cuisines",
+                                      "value.location.address as address",
+                                      "value.location.country_id as country_id",
+                                      "value.location.city_id as city_id","value.location.zipcode as zipcode",
+                                      "explode(value.user_ratings) as usr_ratings")
 
+    # exploded_df.printSchema()
     flattened_df = exploded_df\
-        .withColumn('rating_text',col('user_ratings.rating_text'))\
-        .withColumn('user_id',col('user_ratings.user_id'))\
-        .withColumn('rating',col('user_ratings.rating'))\
-        .drop('user_ratings')
+        .withColumn('rating_text',expr('usr_ratings.rating_text'))\
+        .withColumn('user_id',expr('usr_ratings.user_id'))\
+        .withColumn('rating',expr('usr_ratings.rating'))\
+        .drop('usr_ratings')
 
     # flattened_df.printSchema()
 
@@ -69,9 +71,6 @@ if __name__ == '__main__':
         .option("checkpointLocation", "chck-pnt-dir")\
         .outputMode("append")\
         .queryName("Flattened Invoice Writter")\
-        .trigger(processingTime="1 minute")\
         .start()
-
-    print("Written")
 
     output_query.awaitTermination()
